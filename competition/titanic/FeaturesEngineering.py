@@ -80,6 +80,7 @@ def engineer_features():
             ("decks", decks, ["Cabin"]),
             ("dropper", "drop", ["Ticket"]),
             ("p_title", passenger_title, ["Name"]),
+            ("age_passthrough", "passthrough", ["Age"]),
             ("cat_age", cat_age, ["Age"]),
             ("cat_variables", cat_variables_transf, ["Sex", "Embarked"])
         ],
