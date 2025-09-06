@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
 import warnings
@@ -40,6 +41,12 @@ def _name_to_title(X):
     return title
 
 
+def categorize_age(X):
+    bins = [0, 3, 12, 19, 29, 44, 64, np.inf]
+    labels = ["infant", "child", "teenager", "young_adult", "adult", "middle_aged", "senior"]
+    return pd.cut(X["Age"], bins=bins, labels=labels, right=True).astype(str).to_frame()
+
+
 def engineer_features():
     # Engineer "Cabin" -> "HasCabin"
     has_cabin_transformer = FunctionTransformer(lambda x: x.notnull().astype(int), validate=False,
@@ -59,6 +66,13 @@ def engineer_features():
             ("is_title_", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
         ]
     )
+    # Age categorization
+    cat_age = Pipeline(
+        [
+            ("age_label", FunctionTransformer(categorize_age, validate=False, feature_names_out="one-to-one")),
+            ("is_age_", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+        ]
+    )
     cat_variables_transf = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     return ColumnTransformer(
         transformers=[
@@ -66,6 +80,7 @@ def engineer_features():
             ("decks", decks, ["Cabin"]),
             ("dropper", "drop", ["Ticket"]),
             ("p_title", passenger_title, ["Name"]),
+            ("cat_age", cat_age, ["Age"]),
             ("cat_variables", cat_variables_transf, ["Sex", "Embarked"])
         ],
         remainder="passthrough"
