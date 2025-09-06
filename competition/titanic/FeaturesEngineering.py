@@ -37,22 +37,23 @@ class MultiLabelBinarizerTransformer(BaseEstimator, TransformerMixin):
 
 def engineer_features():
     # Engineer "Cabin" -> "HasCabin"
-    has_cabin_transformer = FunctionTransformer(lambda x: x.notnull().astype(int), validate=False)
+    has_cabin_transformer = FunctionTransformer(lambda x: x.notnull().astype(int), validate=False, feature_names_out="one-to-one")
     decks = Pipeline(
         [
             ("cabin_to_deck", FunctionTransformer(lambda y: y.iloc[:, 0].apply(
-                lambda c: ['U'] if pd.isna(c) else list({part[0] for part in c.split()})).tolist(), validate=False)),
+                lambda c: ['U'] if pd.isna(c) else list({part[0] for part in c.split()})).tolist(), validate=False, feature_names_out="one-to-one")),
             ("mlb", MultiLabelBinarizerTransformer())
         ]
     )
     cat_variables_transf = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     return ColumnTransformer(
-        [
+        transformers = [
             ("has_cabin", has_cabin_transformer, ["Cabin"]),
             ("decks", decks, ["Cabin"]),
-            ("dropper", "drop", ["Name", "Ticket", "Cabin"]),
+            ("dropper", "drop", ["Name", "Ticket"]),
             ("cat_variables", cat_variables_transf, ["Sex", "Embarked"])
-        ]
+        ],
+        remainder="passthrough"
     )
 
 
