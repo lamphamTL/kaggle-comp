@@ -35,22 +35,37 @@ class MultiLabelBinarizerTransformer(BaseEstimator, TransformerMixin):
         return self.mlb.classes_
 
 
+def _name_to_title(X):
+    title = X["Name"].str.extract(r"\S+, (.*?)\.")
+    return title
+
+
 def engineer_features():
     # Engineer "Cabin" -> "HasCabin"
-    has_cabin_transformer = FunctionTransformer(lambda x: x.notnull().astype(int), validate=False, feature_names_out="one-to-one")
+    has_cabin_transformer = FunctionTransformer(lambda x: x.notnull().astype(int), validate=False,
+                                                feature_names_out="one-to-one")
     decks = Pipeline(
         [
             ("cabin_to_deck", FunctionTransformer(lambda y: y.iloc[:, 0].apply(
-                lambda c: ['U'] if pd.isna(c) else list({part[0] for part in c.split()})).tolist(), validate=False, feature_names_out="one-to-one")),
+                lambda c: ['U'] if pd.isna(c) else list({part[0] for part in c.split()})).tolist(), validate=False,
+                                                  feature_names_out="one-to-one")),
             ("mlb", MultiLabelBinarizerTransformer())
+        ]
+    )
+    # Get passenger title: Mr, Mrs, Master etc..
+    passenger_title = Pipeline(
+        [
+            ("title", FunctionTransformer(_name_to_title, validate=False, feature_names_out="one-to-one")),
+            ("is_title_", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
         ]
     )
     cat_variables_transf = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     return ColumnTransformer(
-        transformers = [
+        transformers=[
             ("has_cabin", has_cabin_transformer, ["Cabin"]),
             ("decks", decks, ["Cabin"]),
-            ("dropper", "drop", ["Name", "Ticket"]),
+            ("dropper", "drop", ["Ticket"]),
+            ("p_title", passenger_title, ["Name"]),
             ("cat_variables", cat_variables_transf, ["Sex", "Embarked"])
         ],
         remainder="passthrough"
