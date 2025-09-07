@@ -90,7 +90,6 @@ def engineer_features():
             ("cat_age", cat_age, ["Age"]),
             ("fam_size", FunctionTransformer(fam_size, validate=False, feature_names_out=lambda tf, names: np.array(["FamilySize"])), ["SibSp", "Parch"]),
             ("is_alone", FunctionTransformer(is_alone, validate=False, feature_names_out=lambda tf, names: np.array(["IsAlone"])), ["SibSp", "Parch"]),
-            ("passthrough", "passthrough", ["Age", "SibSp", "Parch"]),
             ("cat_variables", cat_variables_transf, ["Sex", "Embarked"])
         ],
         remainder="passthrough",
