@@ -47,10 +47,17 @@ def categorize_age(X):
     return pd.cut(X["Age"], bins=bins, labels=labels, right=True).astype(str).to_frame()
 
 
+def fam_size(X):
+    return (X["SibSp"].fillna(0).astype(int) + X["Parch"].fillna(0).astype(int) + 1).to_frame()
+
+def is_alone(X):
+    return (X["SibSp"].fillna(0).astype(int) + X["Parch"].fillna(0).astype(int) == 0).to_frame()
+
+
 def engineer_features():
     # Engineer "Cabin" -> "HasCabin"
     has_cabin_transformer = FunctionTransformer(lambda x: x.notnull().astype(int), validate=False,
-                                                feature_names_out="one-to-one")
+                                                feature_names_out=lambda tf, names: np.array(["HasCabin"]))
     decks = Pipeline(
         [
             ("cabin_to_deck", FunctionTransformer(lambda y: y.iloc[:, 0].apply(
@@ -80,17 +87,12 @@ def engineer_features():
             ("decks", decks, ["Cabin"]),
             ("dropper", "drop", ["Ticket"]),
             ("p_title", passenger_title, ["Name"]),
-            ("age_passthrough", "passthrough", ["Age"]),
             ("cat_age", cat_age, ["Age"]),
+            ("fam_size", FunctionTransformer(fam_size, validate=False, feature_names_out=lambda tf, names: np.array(["FamilySize"])), ["SibSp", "Parch"]),
+            ("is_alone", FunctionTransformer(is_alone, validate=False, feature_names_out=lambda tf, names: np.array(["IsAlone"])), ["SibSp", "Parch"]),
+            ("passthrough", "passthrough", ["Age", "SibSp", "Parch"]),
             ("cat_variables", cat_variables_transf, ["Sex", "Embarked"])
         ],
-        remainder="passthrough"
+        remainder="passthrough",
+        verbose_feature_names_out=False
     )
-
-
-df = pd.read_csv("../data/train.csv", delimiter=",")
-
-features = [x for x in df.columns if x != "Survived"]
-x, y = df[features], df["Survived"].T
-print(x.shape)
-print(y.shape)
