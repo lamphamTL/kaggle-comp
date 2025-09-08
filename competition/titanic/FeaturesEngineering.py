@@ -35,16 +35,35 @@ class MultiLabelBinarizerTransformer(BaseEstimator, TransformerMixin):
     def get_feature_names_out(self, input_features=None):
         return self.mlb.classes_
 
+def _cat_age(X):
+    bins = [0, 12, 19, 59, np.inf]
+    labels = ["child", "teenager", "adult", "senior"]
+    return pd.cut(X["Age"], bins=bins, labels=labels, right=True).astype(str)
 
 def _name_to_title(X):
     title = X["Name"].str.extract(r"\S+, (.*?)\.")
     return title
 
 
-def categorize_age(X):
-    bins = [0, 3, 12, 19, 29, 44, 64, np.inf]
-    labels = ["infant", "child", "teenager", "young_adult", "adult", "middle_aged", "senior"]
-    return pd.cut(X["Age"], bins=bins, labels=labels, right=True).astype(str).to_frame()
+def _categorize_age_and_sex(X):
+    bins = [0, 12, 19, 59, np.inf]
+    labels = ["child", "teenager", "adult", "senior"]
+    age_cat = pd.cut(X["Age"], bins=bins, labels=labels, right=True).astype(str)
+    sex = X["Sex"].fillna("U").str.lower().str[0]
+    combined = age_cat + "_" + sex
+    return combined.to_frame()
+
+
+def _categorize_age_and_title(X):
+    age_cat = _cat_age(X)
+    title = _name_to_title(X)[0]
+    combined = age_cat + "_" + title
+    return combined.to_frame()
+
+def _categorize_pclass_sex(X):
+    sex = X["Sex"].fillna("U").str.lower().str[0]
+    combined =  sex + "_"  + X["Pclass"].astype(str)
+    return combined.to_frame()
 
 
 def fam_size(X):
@@ -73,11 +92,25 @@ def engineer_features():
             ("is_title_", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
         ]
     )
-    # Age categorization
-    cat_age = Pipeline(
+    # Age x Sex categorization
+    cat_age_sex = Pipeline(
         [
-            ("age_label", FunctionTransformer(categorize_age, validate=False, feature_names_out="one-to-one")),
-            ("is_age_", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+            ("age_sex_label", FunctionTransformer(_categorize_age_and_sex, validate=False, feature_names_out=lambda tf, names: np.array(["AgeAndSex"]))),
+            ("is_age_sex", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+        ]
+    )
+    # Age x Title categorization
+    cat_age_title = Pipeline(
+        [
+            ("age_title_label", FunctionTransformer(_categorize_age_and_title, validate=False, feature_names_out=lambda tf, names: np.array(["AgeAndTitle"]))),
+            ("age_title", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+        ]
+    )
+    # PClass x Title categorization
+    cat_pclass_sex = Pipeline(
+        [
+            ("cat_pclass_sex", FunctionTransformer(_categorize_pclass_sex, validate=False, feature_names_out=lambda tf, names: np.array(["PClassAndSex"]))),
+            ("pclass_sex", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
         ]
     )
     cat_variables_transf = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
@@ -87,10 +120,12 @@ def engineer_features():
             ("decks", decks, ["Cabin"]),
             ("dropper", "drop", ["Ticket"]),
             ("p_title", passenger_title, ["Name"]),
-            ("cat_age", cat_age, ["Age"]),
+            ("cat_age_sex", cat_age_sex, ["Age", "Sex"]),
+            ("cat_age_title", cat_age_title, ["Age", "Name"]),
+            # ("cat_pclass_sex", cat_pclass_sex, ["Pclass", "Sex"]),
             ("fam_size", FunctionTransformer(fam_size, validate=False, feature_names_out=lambda tf, names: np.array(["FamilySize"])), ["SibSp", "Parch"]),
             ("is_alone", FunctionTransformer(is_alone, validate=False, feature_names_out=lambda tf, names: np.array(["IsAlone"])), ["SibSp", "Parch"]),
-            ("cat_variables", cat_variables_transf, ["Sex", "Embarked"])
+            ("cat_variables", cat_variables_transf, ["Embarked"])
         ],
         remainder="passthrough",
         verbose_feature_names_out=False
